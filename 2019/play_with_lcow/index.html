@@ -1,0 +1,269 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>reveal.js</title>
+
+    <link rel="stylesheet" href="../../reveal.js/css/reset.css">
+    <link rel="stylesheet" href="../../reveal.js/css/reveal.css">
+    <link rel="stylesheet" href="../../reveal.js/css/theme/white.css">
+
+    <!-- Theme used for syntax highlighting of code -->
+    <link rel="stylesheet" href="../../highlight.js/styles/default.css">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Printing and PDF exports -->
+    <script>
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = window.location.search.match(/print-pdf/gi) ? '../../reveal.js/css/print/pdf.css' : '../../reveal.js/css/print/paper.css';
+        document.getElementsByTagName('head')[0].appendChild(link);
+    </script>
+</head>
+
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <section>
+                <h2>Windows Containers で Containerized Build してみる</h2>
+
+                <p style="margin-top: 2em; text-align: right;"><a href="https://github.com/asmichi">@asmichi</a></p>
+                <p style="text-align: right;">
+                    <a href="https://github.com/asmichi/playground/tree/master/src/CoreFx/LibWithNativeCode">
+                        Source Code</a></p>
+            </section>
+
+            <section>
+
+                <section>
+                    <h2>WHY?</h2>
+                    <p>おまえは何がしたいんだ</p>
+                </section>
+
+                <section>
+                    <h3>WHY?</h3>
+                    <ul>
+                        <li>.NET の子プロセス生成ライブラリが欲しい<br />標準のものより細かく制御できるやつが</li>
+                        <li>当然、ネイティブ実装が必要</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3 style="font-size: 80%">NuGet パッケージにネイティブ実装を付随させる</h3>
+                    <pre style="font-size: 50%">
+.nuget/packages/Libuv/1.10.0/runtimes
+(snip)
++-- linux-x64
+|   +-- native
+|       +-- libuv.so
++-- osx
+|   +-- native
+|       +-- libuv.dylib
+(snip)
++-- win-x64
+|   +-- native
+|       +-- libuv.dll
++-- win-x86
+    +-- native
+        +-- libuv.dll
+                    </pre>
+
+                    <p>
+                        <a
+                            href="https://docs.microsoft.com/en-us/nuget/create-packages/supporting-multiple-target-frameworks#architecture-specific-folders">
+                            Architecture-specific folders</a>
+                    </p>
+                </section>
+
+                <section>
+                    <h3>WHY?</h3>
+                    <ul>
+                        <li>これをビルドしたい</li>
+                        <li>VM だとファイル転送するのがだるいでござる</li>
+                        <li>そうだ、 Windows Containers なら<br />Linux と Windows 両方が使えるぞ</li>
+                    </ul>
+                    <p><span style="font-size: 50%">macOS は Mac 以外で動作させられるようになってから出直してきてください</span></p>
+                </section>
+
+                <section>
+                    <p>Windows 上で Linux コンテナが動くの！？</p>
+                </section>
+
+            </section>
+
+            <section>
+
+                <section>
+                    <h2>Linux Containers on Windows (LCOW)</h2>
+                </section>
+
+                <section>
+                    <h3>Linux Containers on Windows (LCOW)</h3>
+
+                    <ul>
+                        <li>Windows 上で Linux コンテナを動かす</li>
+                        <li>軽量 VM 内で Linux を動かして<br />その上でコンテナを実行する</li>
+                    </ul>
+
+                    <pre><code class="powershell">docker run -it --rm `
+--mount "type=bind,readonly,source=C:\home,target=/home/ichi" `
+ubuntu:18.04</code></pre>
+                </section>
+
+                <section>
+                    <p><img src="lcow-approach.png" width="640" /></p>
+                    <p><a
+                            href="https://docs.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/linux-containers#linux-containers-with-hyper-v-isolation">Linux
+                            Containers with Hyper-V isolation</a>
+                    </p>
+                </section>
+
+                <section>
+                    <p><img src="lcow.png" /></p>
+                    <p><a
+                            href="https://docs.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/linux-containers#linux-containers-with-hyper-v-isolation">Linux
+                            Containers with Hyper-V isolation</a>
+                    </p>
+                </section>
+
+                <section>
+                    <pre>&gt;dir "C:\Program Files\Linux Containers"
+
+
+    Directory: C:\Program Files\Linux Containers
+
+Mode                LastWriteTime         Length Name
+----                -------------         ------ ----
+-a----        2019/02/22    18:58        6611330 initrd.img
+-a----        2019/02/22    18:58        7660304 kernel</pre>
+                </section>
+
+            </section>
+
+            <section>
+                <section>
+                    <h2>あとはやるだけ</h2>
+
+                    <ul>
+                        <li>Dockerfile を書く</li>
+                        <ul>
+                            <li>Windows 1809 + VS2017 Build Tools</li>
+                            <li>Ubuntu 18.04</li>
+                        </ul>
+                    </ul>
+                </section>
+                <section>
+                    <h3>あとはやるだけ</h3>
+
+                    <pre><code class="PowerShell">docker build -t foo -f foo.Dockerfile .
+
+docker run foo --name fooContainer `
+    --mount "type=bind,readonly,source=c:/src,target=c:/src"
+
+docker cp fooContainer:c:/bin bin</code></pre>
+                </section>
+                <section>
+                    <h3>できた</h3>
+
+                    <pre><span style="font-size: 85%"><code class="PowerShell">&gt;dir .\bin\NativeLib\ -Recurse -File | %{ Resolve-Path -Relative $_ }
+.\bin\NativeLib\linux-x64\Debug\libNativeLib.so
+.\bin\NativeLib\linux-x64\Release\libNativeLib.so
+.\bin\NativeLib\win-x64\Debug\libNativeLib.dll
+.\bin\NativeLib\win-x64\Debug\libNativeLib.ilk
+.\bin\NativeLib\win-x64\Debug\libNativeLib.pdb
+.\bin\NativeLib\win-x64\Release\libNativeLib.dll
+.\bin\NativeLib\win-x64\Release\libNativeLib.dll.manifest
+.\bin\NativeLib\win-x64\Release\libNativeLib.pdb
+.\bin\NativeLib\win-x86\Debug\libNativeLib.dll
+.\bin\NativeLib\win-x86\Debug\libNativeLib.ilk
+.\bin\NativeLib\win-x86\Debug\libNativeLib.pdb
+.\bin\NativeLib\win-x86\Release\libNativeLib.dll
+.\bin\NativeLib\win-x86\Release\libNativeLib.dll.manifest
+.\bin\NativeLib\win-x86\Release\libNativeLib.pdb</span></code></pre>
+
+                </section>
+                <section>
+                    <p>おわり</p>
+                </section>
+            </section>
+            <section>
+                <section>
+                    <p>Dockerfile</p>
+                </section>
+                <section>
+                    <p>Ubuntu 18.04</p>
+
+                    <pre style="font-size: 60%"><code class="dockerfile">FROM ubuntu:18.04
+RUN apt-get update && apt-get -y install make gcc cmake ninja-build</code></pre>
+                </section>
+                <section>
+                    <p>VS2017 Build Tools <a
+                            href="https://github.com/microsoft/vs-dockerfiles/tree/master/native-desktop">
+                            Native desktop</a></p>
+
+                    <pre style="font-size: 45%"><code class="dockerfile"># escape=`
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT license. See LICENSE.txt in the project root for license information.
+ARG FROM_IMAGE=mcr.microsoft.com/dotnet/framework/runtime:4.7.2-windowsservercore-ltsc2019
+FROM ${FROM_IMAGE}
+
+# Reset the shell.
+SHELL ["cmd", "/S", "/C"]
+
+# Set up environment to collect install errors.
+COPY Install.cmd C:\TEMP\
+ADD https://aka.ms/vscollect.exe C:\TEMP\collect.exe
+
+# Install Node.js LTS
+ADD https://nodejs.org/dist/v8.11.3/node-v8.11.3-x64.msi C:\TEMP\node-install.msi
+RUN start /wait msiexec.exe /i C:\TEMP\node-install.msi /l*vx "%TEMP%\MSI-node-install.log" /qn
+ADDLOCAL=ALL
+
+# Download channel for fixed install.
+ARG CHANNEL_URL=https://aka.ms/vs/15/release/channel
+ADD ${CHANNEL_URL} C:\TEMP\VisualStudio.chman
+
+# Download and install Build Tools for Visual Studio 2017 for native desktop workload.
+ADD https://aka.ms/vs/15/release/vs_buildtools.exe C:\TEMP\vs_buildtools.exe
+RUN C:\TEMP\Install.cmd C:\TEMP\vs_buildtools.exe --quiet --wait --norestart --nocache `
+    --channelUri C:\TEMP\VisualStudio.chman `
+    --installChannelUri C:\TEMP\VisualStudio.chman `
+    --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended`
+    --installPath C:\BuildTools
+
+# Use developer command prompt and start PowerShell if no other command specified.
+ENTRYPOINT C:\BuildTools\Common7\Tools\VsDevCmd.bat &&
+CMD ["powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]</code></pre>
+                </section>
+            </section>
+        </div>
+    </div>
+
+    <script src="../../reveal.js/js/reveal.js"></script>
+
+    <script>
+        // More info about config & dependencies:
+        // - https://github.com/hakimel/reveal.js#configuration
+        // - https://github.com/hakimel/reveal.js#dependencies
+        Reveal.initialize({
+            dependencies: [
+                { src: '../../reveal.js/plugin/markdown/marked.js' },
+                { src: '../../reveal.js/plugin/markdown/markdown.js' },
+                { src: '../../reveal.js/plugin/notes/notes.js', async: true },
+                { src: '../../reveal.js/plugin/highlight/highlight.js', async: true }
+            ],
+            width: 1280,
+            height: 720,
+            slideNumber: true,
+            markdown: {
+                smartypants: false
+            }
+        });
+    </script>
+</body>
+
+</html>
